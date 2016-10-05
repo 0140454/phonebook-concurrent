@@ -102,13 +102,13 @@ int main(int argc, char *argv[])
     pHead = pHead->pNext;
     for (int i = 0; i < THREAD_NUM; i++) {
         if (i == 0) {
-            pHead = app[i]->pHead->pNext;
+            pHead = app[i]->pHead;
             dprintf("Connect %d head string %s %p\n", i,
-                    app[i]->pHead->pNext->lastName, app[i]->ptr);
+                    app[i]->pHead->lastName, app[i]->ptr);
         } else {
-            etmp->pNext = app[i]->pHead->pNext;
+            etmp->pNext = app[i]->pHead;
             dprintf("Connect %d head string %s %p\n", i,
-                    app[i]->pHead->pNext->lastName, app[i]->ptr);
+                    app[i]->pHead->lastName, app[i]->ptr);
         }
 
         etmp = app[i]->pLast;
