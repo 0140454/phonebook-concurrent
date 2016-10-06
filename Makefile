@@ -14,7 +14,7 @@ endif
 EXEC = phonebook_orig phonebook_opt
 all: $(EXEC)
 
-SRCS_common = main.c
+SRCS_common = main.c utils.c
 
 file_align: file_align.c
 	$(CC) $(CFLAGS_common) $^ -o $@

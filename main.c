@@ -9,22 +9,17 @@
 #include <pthread.h>
 #include <sys/mman.h>
 
+#include "utils.h"
 #include IMPL
 
-#define DICT_FILE "./dictionary/words.txt"
+#ifdef OPT
+#include "file.c"
+#include "debug.h"
+#include <fcntl.h>
+#define ALIGN_FILE "align.txt"
+#endif
 
-static double diff_in_second(struct timespec t1, struct timespec t2)
-{
-    struct timespec diff;
-    if (t2.tv_nsec-t1.tv_nsec < 0) {
-        diff.tv_sec  = t2.tv_sec - t1.tv_sec - 1;
-        diff.tv_nsec = t2.tv_nsec - t1.tv_nsec + 1000000000;
-    } else {
-        diff.tv_sec  = t2.tv_sec - t1.tv_sec;
-        diff.tv_nsec = t2.tv_nsec - t1.tv_nsec;
-    }
-    return (diff.tv_sec + diff.tv_nsec / 1000000000.0);
-}
+#define DICT_FILE "./dictionary/words.txt"
 
 int main(int argc, char *argv[])
 {
@@ -46,11 +41,6 @@ int main(int argc, char *argv[])
         return -1;
     }
 #else
-
-#include "file.c"
-#include "debug.h"
-#include <fcntl.h>
-#define ALIGN_FILE "align.txt"
     file_align(DICT_FILE, ALIGN_FILE, MAX_LAST_NAME_SIZE);
     int fd = open(ALIGN_FILE, O_RDONLY | O_NONBLOCK);
     off_t fs = fsize(ALIGN_FILE);
@@ -86,9 +76,9 @@ int main(int argc, char *argv[])
     pthread_setconcurrency(THREAD_NUM + 1);
 
     pthread_t *tid = (pthread_t *) malloc(sizeof(pthread_t) * THREAD_NUM);
-    append_a **app = (append_a **) malloc(sizeof(append_a *) * THREAD_NUM);
+    append_argument **app = (append_argument **) malloc(sizeof(append_argument *) * THREAD_NUM);
     for (int i = 0; i < THREAD_NUM; i++)
-        app[i] = new_append_a(map + MAX_LAST_NAME_SIZE * i, map + fs, i,
+        app[i] = new_append_argument(map + MAX_LAST_NAME_SIZE * i, map + fs, i,
                               THREAD_NUM, entry_pool + i);
 
     clock_gettime(CLOCK_REALTIME, &mid);
@@ -98,23 +88,11 @@ int main(int argc, char *argv[])
     for (int i = 0; i < THREAD_NUM; i++)
         pthread_join(tid[i], NULL);
 
-    entry *etmp;
-    pHead = pHead->pNext;
-    for (int i = 0; i < THREAD_NUM; i++) {
-        if (i == 0) {
-            pHead = app[i]->pHead;
-            dprintf("Connect %d head string %s %p\n", i,
-                    app[i]->pHead->lastName, app[i]->ptr);
-        } else {
-            etmp->pNext = app[i]->pHead;
-            dprintf("Connect %d head string %s %p\n", i,
-                    app[i]->pHead->lastName, app[i]->ptr);
-        }
-
-        etmp = app[i]->pLast;
-        dprintf("Connect %d tail string %s %p\n", i,
-                app[i]->pLast->lastName, app[i]->ptr);
-        dprintf("round %d\n", i);
+    pHead = app[0]->pListHead;
+    e = app[0]->pListTail;
+    for (int i = 1; i < THREAD_NUM; i++) {
+        e->pNext = app[i]->pListHead;
+        e = app[i]->pListTail;
     }
 
     clock_gettime(CLOCK_REALTIME, &end);

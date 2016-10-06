@@ -30,22 +30,20 @@ typedef struct __PHONE_BOOK_ENTRY {
 
 entry *findName(char lastname[], entry *pHead);
 
-typedef struct _append_a {
-    char *ptr;
-    char *eptr;
+typedef struct __APPEND_ARGUMENT {
+    char *pDataStart;
+    char *pDataEnd;
     int tid;
-    int nthread;
-    entry *entryStart;
-    entry *pHead;
-    entry *pLast;
-} append_a;
+    int nThread;
+    entry *pListHead;
+    entry *pListTail;
+} append_argument;
 
-append_a *new_append_a(char *ptr, char *eptr, int tid, int ntd, entry *start);
+append_argument *new_append_argument(char *pDataStart, char *pDataEnd,
+                                     int tid, int nThread, entry *pListHead);
 
 void append(void *arg);
 
 void show_entry(entry *pHead);
-
-static double diff_in_second(struct timespec t1, struct timespec t2);
 
 #endif

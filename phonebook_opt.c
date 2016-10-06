@@ -4,6 +4,7 @@
 #include <strings.h>
 
 #include "phonebook_opt.h"
+#include "utils.h"
 #include "debug.h"
 
 entry *findName(char lastname[], entry *pHead)
@@ -26,43 +27,48 @@ entry *findName(char lastname[], entry *pHead)
     return NULL;
 }
 
-append_a *new_append_a(char *ptr, char *eptr, int tid, int ntd,
-                       entry *start)
+append_argument *new_append_argument(char *pDataStart, char *pDataEnd,
+                                     int tid, int nThread, entry *pListHead)
 {
-    append_a *app = (append_a *) malloc(sizeof(append_a));
+    append_argument *app = (append_argument *) malloc(sizeof(append_argument));
 
-    app->ptr = ptr;
-    app->eptr = eptr;
+    app->pDataStart = pDataStart;
+    app->pDataEnd = pDataEnd;
     app->tid = tid;
-    app->nthread = ntd;
-    app->entryStart = start;
+    app->nThread = nThread;
+    app->pListTail = app->pListHead = pListHead;
 
-    app->pHead = (app->pLast = app->entryStart);
     return app;
 }
 
 void append(void *arg)
 {
     struct timespec start, end;
+#ifdef DEBUG
     double cpu_time;
+#else
+    double cpu_time __attribute__((unused));
+#endif
 
     clock_gettime(CLOCK_REALTIME, &start);
 
-    append_a *app = (append_a *) arg;
+    append_argument *app = (append_argument *) arg;
 
     int count = 0;
-    entry *j = app->entryStart;
-    for (char *i = app->ptr; i < app->eptr;
-            i += MAX_LAST_NAME_SIZE * app->nthread,
-            j += app->nthread,count++) {
-        app->pLast->pNext = j;
-        app->pLast = app->pLast->pNext;
+    entry *new_node = app->pListHead;
+    char *cur_last_name = app->pDataStart;
 
-        app->pLast->lastName = i;
-        dprintf("thread %d append string = %s\n",
-                app->tid, app->pLast->lastName);
-        app->pLast->pNext = NULL;
+    while (cur_last_name < app->pDataEnd) {
+        app->pListTail = app->pListTail->pNext = new_node;
+
+        app->pListTail->lastName = cur_last_name;
+        app->pListTail->pNext = NULL;
+
+        cur_last_name += MAX_LAST_NAME_SIZE * app->nThread;
+        new_node += app->nThread;
+        ++count;
     }
+
     clock_gettime(CLOCK_REALTIME, &end);
     cpu_time = diff_in_second(start, end);
 
@@ -77,17 +83,4 @@ void show_entry(entry *pHead)
         printf("lastName = %s\n", pHead->lastName);
         pHead = pHead->pNext;
     }
-}
-
-static double diff_in_second(struct timespec t1, struct timespec t2)
-{
-    struct timespec diff;
-    if (t2.tv_nsec-t1.tv_nsec < 0) {
-        diff.tv_sec  = t2.tv_sec - t1.tv_sec - 1;
-        diff.tv_nsec = t2.tv_nsec - t1.tv_nsec + 1000000000;
-    } else {
-        diff.tv_sec  = t2.tv_sec - t1.tv_sec;
-        diff.tv_nsec = t2.tv_nsec - t1.tv_nsec;
-    }
-    return (diff.tv_sec + diff.tv_nsec / 1000000000.0);
 }
