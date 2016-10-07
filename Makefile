@@ -11,7 +11,7 @@ ifeq ($(strip $(DEBUG)),1)
 CFLAGS_opt += -DDEBUG -g
 endif
 
-EXEC = phonebook_orig phonebook_opt
+EXEC = phonebook_orig phonebook_opt phonebook_opt_mutex
 all: $(EXEC)
 
 SRCS_common = main.c utils.c
@@ -29,6 +29,11 @@ phonebook_opt: $(SRCS_common) phonebook_opt.c phonebook_opt.h
 		-DIMPL="\"$@.h\"" -o $@ \
 		$(SRCS_common) $@.c
 
+phonebook_opt_mutex: $(SRCS_common) phonebook_opt.c phonebook_opt.h
+	$(CC) $(CFLAGS_common) $(CFLAGS_opt) \
+		-DIMPL="\"phonebook_opt.h\"" -DTHREADPOOL_MUTEX -o $@ \
+		$(SRCS_common) phonebook_opt.c threadpool.c
+
 run: $(EXEC)
 	echo 3 | sudo tee /proc/sys/vm/drop_caches
 	watch -d -t "./phonebook_orig && echo 3 | sudo tee /proc/sys/vm/drop_caches"
@@ -40,6 +45,9 @@ cache-test: $(EXEC)
 	perf stat --repeat 100 \
 		-e cache-misses,cache-references,instructions,cycles \
 		./phonebook_opt
+	perf stat --repeat 100 \
+		-e cache-misses,cache-references,instructions,cycles \
+		./phonebook_opt_mutex
 
 output.txt: cache-test calculate
 	./calculate
@@ -52,5 +60,6 @@ calculate: calculate.c
 
 .PHONY: clean
 clean:
-	$(RM) $(EXEC) *.o perf.* \
-	      	calculate orig.txt opt.txt output.txt runtime.png file_align align.txt
+	$(RM) $(EXEC) *.o perf.* gmon.out \
+	      	calculate orig.txt opt.txt opt_mutex.txt \
+			output.txt runtime.png file_align align.txt

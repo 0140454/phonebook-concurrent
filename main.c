@@ -13,6 +13,9 @@
 #include IMPL
 
 #ifdef OPT
+#if defined(THREADPOOL_MUTEX)
+#include "threadpool.h"
+#endif
 #include "file.c"
 #include "debug.h"
 #include <fcntl.h>
@@ -27,8 +30,6 @@ int main(int argc, char *argv[])
     FILE *fp;
     int i = 0;
     char line[MAX_LAST_NAME_SIZE];
-#else
-    struct timespec mid;
 #endif
     struct timespec start, end;
     double cpu_time1, cpu_time2;
@@ -75,18 +76,28 @@ int main(int argc, char *argv[])
 
     pthread_setconcurrency(THREAD_NUM + 1);
 
-    pthread_t *tid = (pthread_t *) malloc(sizeof(pthread_t) * THREAD_NUM);
     append_argument **app = (append_argument **) malloc(sizeof(append_argument *) * THREAD_NUM);
+#if defined(THREADPOOL_MUTEX)
+    threadpool_t *pool = threadpool_create(THREAD_NUM, 10, 0);
+    for (int i = 0; i < THREAD_NUM; i++) {
+        app[i] = new_append_argument(map + MAX_LAST_NAME_SIZE * i, map + fs, i,
+                                     THREAD_NUM, entry_pool + i);
+
+        threadpool_add(pool, append, app[i], 0);
+    }
+    threadpool_destroy(pool, 1);
+#else
+    pthread_t *tid = (pthread_t *) malloc(sizeof(pthread_t) * THREAD_NUM);
     for (int i = 0; i < THREAD_NUM; i++)
         app[i] = new_append_argument(map + MAX_LAST_NAME_SIZE * i, map + fs, i,
                               THREAD_NUM, entry_pool + i);
 
-    clock_gettime(CLOCK_REALTIME, &mid);
     for (int i = 0; i < THREAD_NUM; i++)
         pthread_create( &tid[i], NULL, (void *) &append, (void *) app[i]);
 
     for (int i = 0; i < THREAD_NUM; i++)
         pthread_join(tid[i], NULL);
+#endif
 
     pHead = app[0]->pListHead;
     e = app[0]->pListTail;
@@ -136,7 +147,9 @@ int main(int argc, char *argv[])
     cpu_time2 = diff_in_second(start, end);
 
     FILE *output;
-#if defined(OPT)
+#if defined(THREADPOOL_MUTEX)
+    output = fopen("opt_mutex.txt", "a");
+#elif defined(OPT)
     output = fopen("opt.txt", "a");
 #else
     output = fopen("orig.txt", "a");
@@ -152,7 +165,9 @@ int main(int argc, char *argv[])
     free(pHead);
 #else
     free(entry_pool);
+#if !defined(THREADPOOL_MUTEX)
     free(tid);
+#endif
     free(app);
     munmap(map, fs);
 #endif
